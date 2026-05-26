@@ -1,6 +1,7 @@
 # 🧬 Molecule Similarity Explorer
 
 An interactive cheminformatics dashboard built with Streamlit, demonstrating core drug discovery concepts.
+Link: https://moleculeviewer-axpjesj9hz8haujz4xsjwd.streamlit.app/
 
 ## Features
 
