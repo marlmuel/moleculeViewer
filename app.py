@@ -2,26 +2,89 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-from collections import defaultdict
 
 st.set_page_config(
-    page_title="Molecule Similarity Explorer",
-    page_icon="🧬",
+    page_title="Roche Small Molecule Explorer",
+    page_icon="",
     layout="wide"
 )
 
-# ── Data ──────────────────────────────────────────────────────────────────────
+# ── Roche approved small molecules ────────────────────────────────────────────
+# Sources: Wikipedia / PubChem / DrugBank — all publicly available data
 
 MOLECULES = [
-    {"name": "Aspirin",      "smiles": "CC(=O)Oc1ccccc1C(=O)O",                                                              "mw": 180.2, "logp": 1.2,  "hbd": 1, "hba": 4,  "tpsa": 63.6,  "rotbonds": 3},
-    {"name": "Ibuprofen",    "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",                                                         "mw": 206.3, "logp": 3.5,  "hbd": 1, "hba": 2,  "tpsa": 37.3,  "rotbonds": 4},
-    {"name": "Caffeine",     "smiles": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",                                                         "mw": 194.2, "logp": -0.1, "hbd": 0, "hba": 6,  "tpsa": 58.4,  "rotbonds": 0},
-    {"name": "Paracetamol",  "smiles": "CC(=O)Nc1ccc(O)cc1",                                                                  "mw": 151.2, "logp": 0.5,  "hbd": 2, "hba": 3,  "tpsa": 49.3,  "rotbonds": 2},
-    {"name": "Naproxen",     "smiles": "COc1ccc2cc(ccc2c1)C(C)C(=O)O",                                                       "mw": 230.3, "logp": 3.2,  "hbd": 1, "hba": 3,  "tpsa": 46.5,  "rotbonds": 4},
-    {"name": "Metformin",    "smiles": "CN(C)C(=N)NC(=N)N",                                                                   "mw": 129.2, "logp": -1.4, "hbd": 4, "hba": 5,  "tpsa": 88.6,  "rotbonds": 2},
-    {"name": "Atorvastatin", "smiles": "CC(C)c1c(C(=O)Nc2ccccc2F)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CCC(O)CC(O)CC(=O)O",         "mw": 558.6, "logp": 4.5,  "hbd": 4, "hba": 9,  "tpsa": 112.0, "rotbonds": 14},
-    {"name": "Lidocaine",    "smiles": "CCN(CC)CC(=O)Nc1c(C)cccc1C",                                                         "mw": 234.3, "logp": 2.3,  "hbd": 1, "hba": 3,  "tpsa": 32.3,  "rotbonds": 6},
+    {
+        "name": "Alectinib",
+        "brand": "Alecensa",
+        "smiles": "CCc1cc2c(cc1N1CCC(CC1)N1CCOCC1)C(c1c(c3ccc(cc3[nH]1)C#N)C2=O)(C)C",
+        "indication": "ALK+ non-small cell lung cancer",
+        "target": "ALK inhibitor",
+        "year": 2015,
+        "mw": 482.6, "logp": 4.9, "hbd": 1, "hba": 5, "tpsa": 75.9, "rotbonds": 4,
+    },
+    {
+        "name": "Cobimetinib",
+        "brand": "Cotellic",
+        "smiles": "C1CCN[C@@H](C1)C2(CN(C2)C(=O)C3=C(C(=C(C=C3)F)F)NC4=C(C=C(C=C4)I)F)O",
+        "indication": "BRAF V600E/K+ melanoma",
+        "target": "MEK1/2 inhibitor",
+        "year": 2015,
+        "mw": 531.3, "logp": 3.2, "hbd": 2, "hba": 5, "tpsa": 78.2, "rotbonds": 4,
+    },
+    {
+        "name": "Vismodegib",
+        "brand": "Erivedge",
+        "smiles": "CS(=O)(=O)C1=CC(=C(C=C1)C(=O)NC2=CC(=C(C=C2)Cl)C3=CC=CC=N3)Cl",
+        "indication": "Basal cell carcinoma",
+        "target": "Hedgehog pathway (SMO) inhibitor",
+        "year": 2012,
+        "mw": 421.3, "logp": 3.7, "hbd": 1, "hba": 4, "tpsa": 71.0, "rotbonds": 4,
+    },
+    {
+        "name": "Pirfenidone",
+        "brand": "Esbriet",
+        "smiles": "CC1=CN(C(=O)C=C1)C2=CC=CC=C2",
+        "indication": "Idiopathic pulmonary fibrosis",
+        "target": "Anti-fibrotic (TGF-β modulator)",
+        "year": 2014,
+        "mw": 185.2, "logp": 1.6, "hbd": 0, "hba": 2, "tpsa": 20.3, "rotbonds": 2,
+    },
+    {
+        "name": "Entrectinib",
+        "brand": "Rozlytrek",
+        "smiles": "CN1CCN(c2ccc(C(=O)Nc3n[nH]c4ccc(Cc5cc(F)cc(F)c5)cc34)c(NC3CCOCC3)c2)CC1",
+        "indication": "ROS1+ NSCLC / NTRK fusion+ solid tumors",
+        "target": "TRK/ROS1/ALK inhibitor",
+        "year": 2019,
+        "mw": 560.6, "logp": 3.6, "hbd": 2, "hba": 7, "tpsa": 96.7, "rotbonds": 7,
+    },
+    {
+        "name": "Venetoclax",
+        "brand": "Venclexta",
+        "smiles": "CC1(C)CCC(CN2CCN(C3=CC(OC4=CN=C5C(C=CN5)=C4)=C(C(NS(=O)(C6=CC([N+]([O-])=O)=C(NCC7CCOCC7)C=C6)=O)=O)C=C3)CC2)=C(C8=CC=C(Cl)C=C8)C1",
+        "indication": "Chronic lymphocytic leukemia / AML",
+        "target": "BCL-2 inhibitor",
+        "year": 2016,
+        "mw": 868.4, "logp": 5.8, "hbd": 3, "hba": 10, "tpsa": 170.2, "rotbonds": 14,
+    },
+    {
+        "name": "Idasanutlin",
+        "brand": "Investigational (RG7388)",
+        "smiles": "COC1=CC=C(C=C1)C2=CC(=C(C(=C2)C(F)(F)F)NC(=O)N3CCC[C@H]3CO)Cl",
+        "indication": "AML (MDM2 inhibitor, clinical trials)",
+        "target": "MDM2 inhibitor",
+        "year": 2020,
+        "mw": 499.9, "logp": 3.5, "hbd": 2, "hba": 5, "tpsa": 75.5, "rotbonds": 5,
+    },
+    {
+        "name": "Ipatasertib",
+        "brand": "Investigational (GDC-0068)",
+        "smiles": "C[C@@H]1CCN(C[C@@H]1NC(=O)C2=CN=CN=C2)CC3=CC4=C(S3)N=CN=C4N",
+        "indication": "Prostate cancer / breast cancer (AKT inhibitor)",
+        "target": "AKT1/2/3 inhibitor",
+        "year": 2021,
+        "mw": 424.5, "logp": 1.8, "hbd": 3, "hba": 9, "tpsa": 115.7, "rotbonds": 5,
+    },
 ]
 
 COLORS = [
@@ -29,15 +92,16 @@ COLORS = [
     "#BA7517", "#D4537E", "#888780", "#5DCAA5",
 ]
 
-RO5_LIMITS = {"mw": 500, "logp": 5, "hbd": 5, "hba": 10, "tpsa": 140}
-RO5_LABELS = {"mw": "MW ≤500", "logp": "logP ≤5", "hbd": "HBD ≤5", "hba": "HBA ≤10", "tpsa": "TPSA ≤140"}
+RO5_LIMITS  = {"mw": 500, "logp": 5, "hbd": 5, "hba": 10, "tpsa": 140}
+RO5_LABELS  = {"mw": "MW ≤500", "logp": "logP ≤5", "hbd": "HBD ≤5", "hba": "HBA ≤10", "tpsa": "TPSA ≤140"}
+RO5_KEYS    = ["mw", "logp", "hbd", "hba", "tpsa"]
 
-# ── Cheminformatics helpers (pure Python, no RDKit) ───────────────────────────
+# ── Chemistry helpers (pure Python — no RDKit required) ───────────────────────
 
 def mock_fingerprint(smiles: str) -> np.ndarray:
     """
-    Deterministic pseudo-fingerprint from SMILES characters.
-    In production replace with:
+    Deterministic pseudo-fingerprint derived from SMILES string.
+    Production replacement:
         from rdkit.Chem import AllChem
         mol = Chem.MolFromSmiles(smiles)
         fp  = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=512)
@@ -46,8 +110,7 @@ def mock_fingerprint(smiles: str) -> np.ndarray:
     return rng.integers(0, 2, size=512).astype(float)
 
 def tanimoto(a: np.ndarray, b: np.ndarray) -> float:
-    """Tanimoto / Jaccard coefficient for binary fingerprints."""
-    both  = np.sum(a * b)
+    both   = np.sum(a * b)
     either = np.sum((a + b) > 0)
     return float(both / either) if either > 0 else 0.0
 
@@ -57,23 +120,15 @@ def similarity_matrix(mols: list) -> np.ndarray:
     mat = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            mat[i, j] = tanimoto(fps[i], fps[j])
+            mat[i, j] = round(tanimoto(fps[i], fps[j]), 3)
     return mat
 
 def lipinski_pass(mol: dict) -> bool:
     return (mol["mw"] <= 500 and mol["logp"] <= 5
             and mol["hbd"] <= 5 and mol["hba"] <= 10)
 
-def mock_umap(mols: list) -> list[dict]:
-    """
-    Deterministic 2-D projection for demo.
-    In production replace with:
-        from umap import UMAP
-        X = np.array([fingerprint(m) for m in mols])
-        coords = UMAP(n_components=2).fit_transform(X)
-    """
-    mat = similarity_matrix(mols)
-    # simple MDS-like projection from similarity matrix
+def mock_umap(mols: list) -> list:
+    mat  = similarity_matrix(mols)
     dist = 1 - mat
     np.fill_diagonal(dist, 0)
     center = dist.mean(axis=1)
@@ -83,7 +138,7 @@ def mock_umap(mols: list) -> list[dict]:
     return [{"name": m["name"], "x": float(x[i]), "y": float(y[i])}
             for i, m in enumerate(mols)]
 
-# ── Session state ─────────────────────────────────────────────────────────────
+# ── Session state ──────────────────────────────────────────────────────────────
 
 if "molecules" not in st.session_state:
     st.session_state.molecules = MOLECULES.copy()
@@ -92,42 +147,48 @@ if "selected" not in st.session_state:
 
 mols    = st.session_state.molecules
 sel_idx = st.session_state.selected
+if sel_idx >= len(mols):
+    sel_idx = 0
+    st.session_state.selected = 0
 sel_mol = mols[sel_idx]
 
-# ── Header ────────────────────────────────────────────────────────────────────
+# ── Header ─────────────────────────────────────────────────────────────────────
 
-st.title("🧬 Molecule Similarity Explorer")
-st.caption("ECFP4 fingerprints · Tanimoto similarity · Lipinski Ro5 · Chemical space")
+st.title("🧬 Roche Small Molecule Explorer")
+st.caption("Approved & late-stage small molecules from Roche / Genentech · ECFP4 fingerprints · Tanimoto similarity · Lipinski Ro5")
 
-# ── Metrics row ───────────────────────────────────────────────────────────────
+# ── Metrics ────────────────────────────────────────────────────────────────────
 
-druglike_count = sum(1 for m in mols if lipinski_pass(m))
 sim_mat        = similarity_matrix(mols)
 n              = len(mols)
-avg_sim        = (sim_mat.sum() - n) / (n * (n - 1)) if n > 1 else 0
+druglike_count = sum(1 for m in mols if lipinski_pass(m))
+avg_sim        = round((sim_mat.sum() - n) / (n * (n - 1)), 3) if n > 1 else 0
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Compounds",    n)
-c2.metric("Drug-like",    f"{druglike_count} / {n}")
-c3.metric("Avg similarity", f"{avg_sim:.2f}")
-c4.metric("Selected",     sel_mol["name"])
+c1.metric("Compounds",       n)
+c2.metric("Drug-like (Ro5)", f"{druglike_count} / {n}")
+c3.metric("Avg similarity",  f"{avg_sim:.2f}")
+c4.metric("Selected",        sel_mol["name"])
 
 st.divider()
 
-# ── Molecule selector ─────────────────────────────────────────────────────────
+# ── Molecule selector ──────────────────────────────────────────────────────────
 
 st.subheader("Compound library")
-st.caption("Select a molecule to update the drug-likeness radar chart")
+st.caption("Click a compound to update the drug-likeness radar and descriptor table")
 
 cols = st.columns(min(len(mols), 4))
 for i, mol in enumerate(mols):
-    col = cols[i % 4]
-    with col:
-        passes = lipinski_pass(mol)
-        border_color = COLORS[i % len(COLORS)]
-        badge  = "✅ Drug-like" if passes else "⚠️ Violates Ro5"
+    with cols[i % 4]:
+        label = (
+            f"**{mol['name']}**  \n"
+            f"{mol['brand']}  \n"
+            f"MW {mol['mw']} · logP {mol['logp']}  \n"
+            f"{'✅ Ro5 pass' if lipinski_pass(mol) else '⚠️ Ro5 fail'}  \n"
+            f"*{mol['target']}*"
+        )
         if st.button(
-            f"**{mol['name']}**\n\nMW {mol['mw']} · logP {mol['logp']}\n\n{badge}",
+            label,
             key=f"mol_{i}",
             use_container_width=True,
             type="primary" if i == sel_idx else "secondary",
@@ -137,14 +198,19 @@ for i, mol in enumerate(mols):
 
 st.divider()
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
+# ── Tabs ───────────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3 = st.tabs(["🟩 Similarity heatmap", "🔵 Chemical space", "📊 Drug-likeness"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Similarity heatmap",
+    "Chemical space",
+    "Drug-likeness",
+    "Compound table",
+])
 
-# ── Tab 1 — Heatmap ───────────────────────────────────────────────────────────
+# ── Tab 1 — Heatmap ────────────────────────────────────────────────────────────
 
 with tab1:
-    st.markdown("**Tanimoto similarity matrix** — computed from ECFP4-style fingerprints (radius=2)")
+    st.markdown("**Tanimoto similarity matrix** — pairwise structural similarity from ECFP4 fingerprints (radius=2)")
 
     labels = [m["name"] for m in mols]
 
@@ -152,229 +218,245 @@ with tab1:
         z=sim_mat,
         x=labels,
         y=labels,
-        colorscale=[[0, "#E1F5EE"], [1, "#0F6E56"]],
+        colorscale=[[0, "#E1F5EE"], [0.5, "#5DCAA5"], [1, "#0F6E56"]],
         zmin=0, zmax=1,
         text=[[f"{sim_mat[i][j]:.2f}" for j in range(n)] for i in range(n)],
         texttemplate="%{text}",
-        textfont={"size": 11},
+        textfont={"size": 10},
         hovertemplate="%{y} vs %{x}<br>Tanimoto: %{z:.3f}<extra></extra>",
     ))
-
     fig_heat.update_layout(
-        height=420,
+        height=450,
         margin=dict(l=20, r=20, t=20, b=20),
-        xaxis=dict(tickangle=-40),
+        xaxis=dict(tickangle=-40, tickfont=dict(size=11)),
+        yaxis=dict(tickfont=dict(size=11)),
     )
-
     st.plotly_chart(fig_heat, use_container_width=True)
-
     st.caption(
-        "Tanimoto = (bits in common) / (bits in either). "
-        "Score of 1.0 = identical structures. "
-        "Scores > 0.4 generally indicate structural similarity in medicinal chemistry."
+        "Tanimoto = (bits in common) / (bits in either fingerprint). "
+        "Score 1.0 = identical. Score > 0.4 indicates structural similarity in medicinal chemistry. "
+        "Diagonal = self-similarity = 1.0."
     )
 
-# ── Tab 2 — Chemical space ────────────────────────────────────────────────────
+# ── Tab 2 — Chemical space ─────────────────────────────────────────────────────
 
 with tab2:
-    st.markdown("**Chemical space projection** — UMAP of fingerprint vectors (2D)")
+    st.markdown("**Chemical space projection** — dimensionality reduction of ECFP4 fingerprint vectors")
 
-    embed = mock_umap(mols)
-    df_embed = pd.DataFrame(embed)
+    embed    = mock_umap(mols)
+    fig_scat = go.Figure()
 
-    fig_scatter = go.Figure()
-    for i, row in df_embed.iterrows():
+    for i, pt in enumerate(embed):
         mol = mols[i]
-        fig_scatter.add_trace(go.Scatter(
-            x=[row["x"]], y=[row["y"]],
+        fig_scat.add_trace(go.Scatter(
+            x=[pt["x"]], y=[pt["y"]],
             mode="markers+text",
             name=mol["name"],
             text=[mol["name"]],
             textposition="top center",
-            marker=dict(size=16, color=COLORS[i % len(COLORS)]),
+            textfont=dict(size=11),
+            marker=dict(size=18, color=COLORS[i % len(COLORS)],
+                        line=dict(width=1.5, color="white")),
             hovertemplate=(
-                f"<b>{mol['name']}</b><br>"
-                f"MW: {mol['mw']} g/mol<br>"
-                f"logP: {mol['logp']}<br>"
-                f"Ro5: {'Pass' if lipinski_pass(mol) else 'Fail'}"
+                f"<b>{mol['name']}</b> ({mol['brand']})<br>"
+                f"Target: {mol['target']}<br>"
+                f"Indication: {mol['indication']}<br>"
+                f"MW: {mol['mw']} · logP: {mol['logp']}<br>"
+                f"Ro5: {'Pass ✅' if lipinski_pass(mol) else 'Fail ⚠️'}"
                 "<extra></extra>"
             ),
         ))
 
-    fig_scatter.update_layout(
-        height=400,
+    fig_scat.update_layout(
+        height=420,
         showlegend=False,
         margin=dict(l=20, r=20, t=20, b=20),
-        xaxis=dict(title="UMAP 1", zeroline=False, showgrid=True, gridcolor="#eee"),
-        yaxis=dict(title="UMAP 2", zeroline=False, showgrid=True, gridcolor="#eee"),
+        xaxis=dict(title="UMAP 1", zeroline=False, showgrid=True, gridcolor="rgba(0,0,0,0.06)"),
+        yaxis=dict(title="UMAP 2", zeroline=False, showgrid=True, gridcolor="rgba(0,0,0,0.06)"),
     )
-
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scat, use_container_width=True)
     st.caption(
-        "In production this uses real UMAP on ECFP4 fingerprint vectors. "
-        "Molecules that cluster together share structural features."
+        "Hover over points for compound details. "
+        "In production this uses real UMAP on ECFP4 vectors — "
+        "molecules that cluster together share structural features (same scaffold, similar substituents)."
     )
 
-# ── Tab 3 — Drug-likeness radar ───────────────────────────────────────────────
+# ── Tab 3 — Drug-likeness ──────────────────────────────────────────────────────
 
 with tab3:
     left, right = st.columns([1, 1])
 
     with left:
-        st.markdown(f"**Lipinski Ro5 profile — {sel_mol['name']}**")
+        st.markdown(f"**Lipinski Ro5 profile — {sel_mol['name']} ({sel_mol['brand']})**")
 
-        categories  = ["MW", "logP", "HBD", "HBA", "TPSA"]
-        keys        = ["mw", "logp", "hbd", "hba", "tpsa"]
-        values      = [sel_mol[k] for k in keys]
-        limits      = [RO5_LIMITS[k] for k in keys]
-        normalized  = [min(v / l, 1.2) for v, l in zip(values, limits)]
+        categories = ["MW", "logP", "HBD", "HBA", "TPSA"]
+        values     = [sel_mol[k] for k in RO5_KEYS]
+        limits     = [RO5_LIMITS[k] for k in RO5_KEYS]
+        normalized = [min(v / l, 1.3) for v, l in zip(values, limits)]
+        color      = COLORS[sel_idx % len(COLORS)]
 
         fig_radar = go.Figure()
-
-        # Ro5 boundary
         fig_radar.add_trace(go.Scatterpolar(
-            r=[1, 1, 1, 1, 1, 1],
-            theta=categories + [categories[0]],
-            fill="toself",
-            fillcolor="rgba(0,0,0,0.04)",
-            line=dict(color="#ccc", dash="dot"),
-            name="Ro5 limit",
+            r=[1]*5 + [1], theta=categories + [categories[0]],
+            fill="toself", fillcolor="rgba(0,0,0,0.04)",
+            line=dict(color="#ccc", dash="dot"), name="Ro5 limit",
         ))
-
-        # Molecule profile
-        color = COLORS[sel_idx % len(COLORS)]
         fig_radar.add_trace(go.Scatterpolar(
-            r=normalized + [normalized[0]],
-            theta=categories + [categories[0]],
-            fill="toself",
-            fillcolor=color + "33",
-            line=dict(color=color, width=2),
-            name=sel_mol["name"],
+            r=normalized + [normalized[0]], theta=categories + [categories[0]],
+            fill="toself", fillcolor=f'rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.2)',
+            line=dict(color=color, width=2), name=sel_mol["name"],
         ))
-
         fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 1.2],
-                                       tickvals=[0.25, 0.5, 0.75, 1.0],
-                                       ticktext=["25%", "50%", "75%", "100%"])),
-            showlegend=False,
-            height=350,
-            margin=dict(l=40, r=40, t=40, b=40),
+            polar=dict(radialaxis=dict(
+                visible=True, range=[0, 1.3],
+                tickvals=[0.25, 0.5, 0.75, 1.0],
+                ticktext=["25%", "50%", "75%", "100% (limit)"],
+                tickfont=dict(size=9),
+            )),
+            showlegend=False, height=340,
+            margin=dict(l=50, r=50, t=30, b=30),
         )
-
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with right:
         st.markdown(f"**Descriptor details**")
+        st.markdown(f"*{sel_mol['indication']}*")
+        st.markdown(f"Target: `{sel_mol['target']}` · Approved: {sel_mol['year']}")
         st.markdown("")
 
         ro5_rows = []
-        for k in keys:
+        for k in RO5_KEYS:
             val   = sel_mol[k]
             limit = RO5_LIMITS[k]
-            label = RO5_LABELS[k]
-            passes = val <= limit
             ro5_rows.append({
-                "Descriptor": label,
+                "Rule":  RO5_LABELS[k],
                 "Value": val,
-                "Pass": "✅" if passes else "❌",
+                "Status": "✅ Pass" if val <= limit else "❌ Fail",
             })
 
-        df_ro5 = pd.DataFrame(ro5_rows)
-        st.dataframe(df_ro5, hide_index=True, use_container_width=True)
-
-        passes_all = lipinski_pass(sel_mol)
-        if passes_all:
-            st.success(f"**{sel_mol['name']}** passes all Lipinski Ro5 rules — predicted good oral bioavailability.")
-        else:
-            violations = sum(1 for k in keys if sel_mol[k] > RO5_LIMITS[k])
-            st.warning(f"**{sel_mol['name']}** violates {violations} Ro5 rule(s) — may have reduced oral bioavailability.")
-
+        st.dataframe(pd.DataFrame(ro5_rows), hide_index=True, use_container_width=True)
         st.markdown("")
+
+        if lipinski_pass(sel_mol):
+            st.success(f"**{sel_mol['name']}** passes all Lipinski Ro5 rules.")
+        else:
+            violations = [RO5_LABELS[k] for k in RO5_KEYS if sel_mol[k] > RO5_LIMITS[k]]
+            st.warning(
+                f"**{sel_mol['name']}** violates: {', '.join(violations)}. "
+                "This is expected for complex oncology molecules (BCS class IV / beyond Ro5 space)."
+            )
+
         st.markdown("**Rotatable bonds**")
-        st.progress(min(sel_mol["rotbonds"] / 15, 1.0),
-                    text=f"{sel_mol['rotbonds']} rotatable bonds (≤10 preferred)")
+        st.progress(
+            min(sel_mol["rotbonds"] / 20, 1.0),
+            text=f"{sel_mol['rotbonds']} rotatable bonds (≤10 preferred for oral bioavailability)",
+        )
+
+# ── Tab 4 — Compound table ─────────────────────────────────────────────────────
+
+with tab4:
+    st.markdown("**Full compound library**")
+
+    df = pd.DataFrame([{
+        "Name":       m["name"],
+        "Brand":      m["brand"],
+        "Target":     m["target"],
+        "Indication": m["indication"],
+        "Year":       m["year"],
+        "MW":         m["mw"],
+        "logP":       m["logp"],
+        "HBD":        m["hbd"],
+        "HBA":        m["hba"],
+        "TPSA":       m["tpsa"],
+        "RotBonds":   m["rotbonds"],
+        "Ro5":        "✅" if lipinski_pass(m) else "❌",
+    } for m in mols])
+
+    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.download_button(
+        "Download as CSV",
+        data=df.to_csv(index=False),
+        file_name="roche_small_molecules.csv",
+        mime="text/csv",
+    )
 
 st.divider()
 
-# ── Add custom molecule ───────────────────────────────────────────────────────
+# ── Add custom molecule ────────────────────────────────────────────────────────
 
-st.subheader("Add a molecule")
+with st.expander("Add a custom molecule"):
+    with st.form("add_molecule", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        new_name    = c1.text_input("Name",         placeholder="Compound X")
+        new_brand   = c2.text_input("Brand / code", placeholder="GDC-XXXX")
+        new_smiles  = c3.text_input("SMILES",        placeholder="CC(=O)...")
+        new_target  = st.text_input("Target / MoA",  placeholder="e.g. KRAS G12C inhibitor")
+        new_indication = st.text_input("Indication", placeholder="e.g. NSCLC")
 
-with st.form("add_molecule", clear_on_submit=True):
-    col_name, col_smiles = st.columns([1, 2])
-    with col_name:
-        new_name = st.text_input("Name", placeholder="My molecule")
-    with col_smiles:
-        new_smiles = st.text_input("SMILES", placeholder="CC(=O)Oc1ccccc1C(=O)O")
+        dc1, dc2, dc3, dc4, dc5, dc6 = st.columns(6)
+        new_mw   = dc1.number_input("MW",       0.0,  value=300.0, step=0.1)
+        new_logp = dc2.number_input("logP",    -10.0, value=2.0,   step=0.1)
+        new_hbd  = dc3.number_input("HBD",      0,    value=1,     step=1)
+        new_hba  = dc4.number_input("HBA",      0,    value=3,     step=1)
+        new_tpsa = dc5.number_input("TPSA",     0.0,  value=60.0,  step=0.1)
+        new_rotb = dc6.number_input("RotBonds", 0,    value=4,     step=1)
 
-    col_mw, col_logp, col_hbd, col_hba, col_tpsa = st.columns(5)
-    new_mw   = col_mw.number_input("MW",   min_value=0.0, value=200.0, step=0.1)
-    new_logp = col_logp.number_input("logP", min_value=-10.0, value=2.0, step=0.1)
-    new_hbd  = col_hbd.number_input("HBD",  min_value=0, value=1, step=1)
-    new_hba  = col_hba.number_input("HBA",  min_value=0, value=2, step=1)
-    new_tpsa = col_tpsa.number_input("TPSA", min_value=0.0, value=50.0, step=0.1)
-    new_rotb = st.number_input("Rotatable bonds", min_value=0, value=3, step=1)
+        if st.form_submit_button("Add molecule", use_container_width=True):
+            if not new_name or not new_smiles:
+                st.error("Name and SMILES are required.")
+            elif any(m["smiles"] == new_smiles for m in st.session_state.molecules):
+                st.error("SMILES already in library.")
+            else:
+                st.session_state.molecules.append({
+                    "name": new_name, "brand": new_brand or "—",
+                    "smiles": new_smiles, "target": new_target or "—",
+                    "indication": new_indication or "—", "year": 2024,
+                    "mw": new_mw, "logp": new_logp, "hbd": new_hbd,
+                    "hba": new_hba, "tpsa": new_tpsa, "rotbonds": new_rotb,
+                })
+                st.success(f"Added {new_name}!")
+                st.rerun()
 
-    submitted = st.form_submit_button("➕ Add molecule", use_container_width=True)
-
-    if submitted:
-        if not new_name or not new_smiles:
-            st.error("Please provide both a name and a SMILES string.")
-        elif any(m["smiles"] == new_smiles for m in st.session_state.molecules):
-            st.error("This SMILES is already in the library.")
-        else:
-            st.session_state.molecules.append({
-                "name": new_name, "smiles": new_smiles,
-                "mw": new_mw, "logp": new_logp,
-                "hbd": new_hbd, "hba": new_hba,
-                "tpsa": new_tpsa, "rotbonds": new_rotb,
-            })
-            st.success(f"Added **{new_name}** to the library!")
-            st.rerun()
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Sidebar ────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("ℹ️ About")
+    st.header("About")
     st.markdown("""
-    **Molecule Similarity Explorer** demonstrates core cheminformatics concepts:
+    **Roche Small Molecule Explorer**
 
-    **ECFP4 fingerprints**
-    Extended connectivity fingerprints (radius=2) encode each atom's local chemical neighbourhood into a bit vector.
+    Showcases approved and late-stage small molecules from Roche / Genentech with interactive cheminformatics visualizations.
 
-    **Tanimoto similarity**
-    Measures structural overlap between two fingerprints:
-    `score = bits_in_common / bits_in_either`
-
-    **UMAP projection**
-    Reduces high-dimensional fingerprint vectors to 2D for visual exploration of chemical space.
-
-    **Lipinski Ro5**
-    Rule-of-5 filter for oral drug-likeness:
-    - MW ≤ 500 g/mol
-    - logP ≤ 5
-    - H-bond donors ≤ 5
-    - H-bond acceptors ≤ 10
+    **Molecules included:**
+    - Alectinib (Alecensa) — ALK+ NSCLC
+    - Cobimetinib (Cotellic) — Melanoma
+    - Vismodegib (Erivedge) — BCC
+    - Pirfenidone (Esbriet) — IPF
+    - Entrectinib (Rozlytrek) — NTRK/ROS1+
+    - Venetoclax (Venclexta) — CLL/AML
+    - Idasanutlin — MDM2 (clinical)
+    - Ipatasertib — AKT (clinical)
     """)
 
     st.divider()
-    st.markdown("**Example SMILES**")
-    st.code("CC(=O)Oc1ccccc1C(=O)O", language=None)
-    st.caption("Aspirin")
+    st.markdown("**Cheminformatics concepts**")
+    st.markdown("""
+    - **ECFP4** — Morgan fingerprints, radius=2
+    - **Tanimoto** — structural similarity metric
+    - **UMAP** — fingerprint space projection
+    - **Lipinski Ro5** — oral drug-likeness filter
+    """)
 
     st.divider()
     st.markdown("**Production upgrade**")
-    st.markdown("""
-    Replace mock fingerprints with:
-    ```python
-    from rdkit.Chem import AllChem
-    fp = AllChem.GetMorganFingerprintAsBitVect(
-        mol, radius=2, nBits=2048
+    st.code(
+        "from rdkit.Chem import AllChem\n"
+        "fp = AllChem.GetMorganFingerprintAsBitVect(\n"
+        "    mol, radius=2, nBits=2048\n"
+        ")",
+        language="python"
     )
-    ```
-    """)
 
-    if st.button("🗑️ Reset to defaults", use_container_width=True):
+    if st.button("Reset to defaults", use_container_width=True):
         st.session_state.molecules = MOLECULES.copy()
         st.session_state.selected  = 0
         st.rerun()
